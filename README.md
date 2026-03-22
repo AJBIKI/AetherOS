@@ -1,9 +1,3 @@
-Since you’ve successfully implemented a **v1.2 "God-Tier" RAG Pipeline** with a **Section-Tree Chunker** and **Cross-Encoder Reranking**, your README needs to reflect that this isn't just a "tutorial project"—it's a sophisticated piece of engineering.
-
-Here is a professional, developer-focused `README.md` tailored for **AetherOS**.
-
----
-
 # 🌌 AetherOS: Developer's Second Brain
 **High-Precision RAG with Hierarchical AST Chunking & Cross-Encoder Reranking**
 
