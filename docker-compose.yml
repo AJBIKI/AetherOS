@@ -1,0 +1,8 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333" # API Port
+      - "6334:6334" # gRPC Port
+    volumes:
+      - ./qdrant_storage:/qdrant/storage # Keeps your data even if the container stops

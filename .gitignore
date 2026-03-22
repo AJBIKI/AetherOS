@@ -1,0 +1,18 @@
+# Dependencies
+node_modules
+
+
+
+# Production
+/dist
+/build
+
+# Environment files
+.env
+.env.local
+
+notes
+
+qdrant_storage
+test-notes
+untitled.codediagram
