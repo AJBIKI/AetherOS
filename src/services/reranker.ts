@@ -5,9 +5,9 @@ let reranker: any = null;
 const initReranker = async () => {
   if (!reranker) {
     console.log("🔄 Loading reranker model...");
+    // Using MiniLM-L-12 for high precision on your RTX 2050
     reranker = await pipeline(
       "text-classification",
-      // "Xenova/ms-marco-MiniLM-L-6-v2"  // cross-encoder reranker
       "Xenova/ms-marco-MiniLM-L-12-v2"
     );
     console.log("✅ Reranker model loaded.");
@@ -15,31 +15,32 @@ const initReranker = async () => {
   return reranker;
 };
 
-export const rerank = async (
+/**
+ * 🎯 God-Tier Reranker (Metadata Preserving)
+ */
+export const rerank = async <T extends { text: string }>(
   query: string,
-  chunks: { id: string; score: number; text: string; [key: string]: any }[],
+  chunks: T[],
   topK: number = 5
-) => {
+): Promise<T[]> => {
   const model = await initReranker();
 
-  // Score each chunk against the query using the cross-encoder
   const scored = await Promise.all(
     chunks.map(async (chunk) => {
       const result = await model(query, { text_pair: chunk.text });
-      // ms-marco returns LABEL_0 (irrelevant) / LABEL_1 (relevant)
-      const relevanceScore =
-        result[0].label === "LABEL_1"
-          ? result[0].score
-          : 1 - result[0].score;
+      
+      const relevanceScore = result[0].label === "LABEL_1" 
+        ? result[0].score 
+        : 1 - result[0].score;
 
       return { ...chunk, rerankScore: relevanceScore };
     })
   );
 
-  // Sort by rerank score descending, return topK
   return scored
     .sort((a, b) => b.rerankScore - a.rerankScore)
     .slice(0, topK)
-    .map(({ rerankScore, ...rest }) => rest);  // strip rerankScore, return original shape
-  
-}
+    // 🚀 FIXED: The "Double Cast" pattern to satisfy the TS Compiler
+    // We cast to unknown first, then to T.
+    .map(({ rerankScore, ...rest }) => rest as unknown as T); 
+};

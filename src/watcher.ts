@@ -36,6 +36,9 @@ const handleFile = async (filePath: string, type: 'ADD' | 'CHANGE') => {
 
     let chunkIndex = 0;
     for (const chunk of chunks) {
+      if (chunk.chunkLevel === 'paragraph') {
+         console.log(`   🔗 Parent ID for paragraph: ${chunk.parentId}`);
+       }
       chunkIndex++;
       console.log(`\n   📦 Chunk ${chunkIndex}/${chunks.length}:`);
       console.log(`      ID: ${chunk.id}`);

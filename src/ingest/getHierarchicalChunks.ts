@@ -260,7 +260,8 @@ async function generateChunks(
       for (let i = 0; i < sectionSplits.length; i++) {
         const content = sectionSplits[i];
         all.push({
-          id: makeId(`${filePath}|${headingPath.join('>')}|section|${content.substring(0, 120)}|${i}`),
+          // id: makeId(`${filePath}|${headingPath.join('>')}|section|${content.substring(0, 120)}|${i}`),
+          id:sectionId,
           content,
           headingPath,
           level,
