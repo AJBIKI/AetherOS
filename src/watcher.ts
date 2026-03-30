@@ -8,6 +8,7 @@ import path from 'node:path';
 import { getEmbedding } from './llm.js';
 import { deleteNoteByFilePath, upsertChunk } from './storage.js';
 import { getHierarchicalChunks } from './ingest/getHierarchicalChunks.js';
+import { maybeRebuildIDF } from './services/idfManager.js';
 
 /**
  * v1.1 Ingestion Worker – God Plan Ready
@@ -71,6 +72,8 @@ const handleFile = async (filePath: string, type: 'ADD' | 'CHANGE') => {
       });
       console.log(`      ✅ Upserted`);
     }
+    
+    await maybeRebuildIDF(chunks.length);
 
     console.log(`\n✅ Successfully synced ${chunks.length} chunks from ${path.basename(filePath)}`);
 

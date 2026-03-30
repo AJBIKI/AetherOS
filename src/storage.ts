@@ -15,11 +15,58 @@ const COLLECTION_NAME = 'aetheros_notes';
  
  
  
- export const initStorage = async () => {
+ // export const initStorage = async () => {
+ //   const collections = await client.getCollections();
+ //   const exists = collections.collections.some((c) => c.name === COLLECTION_NAME);
+ 
+ //   if (!exists) {
+ //     // 1. Create collection with vectors + sparse support
+ //     await client.createCollection(COLLECTION_NAME, {
+ //       vectors: {
+ //         "text-dense": {
+ //           size: 768,
+ //           distance: 'Cosine'
+ //         }
+ //       },
+ //       sparse_vectors: {
+ //         "text-sparse": {
+ //           index: { full_scan_threshold: 1000 }
+ //         }
+ //       }
+ //     });
+ 
+ //     console.log(`✅ Collection '${COLLECTION_NAME}' created.`);
+ 
+ //     // 2. Explicitly create payload indexes (this is the reliable way)
+ //     const fieldsToIndex = [
+ //       { key: "filePath", type: "keyword" },
+ //       { key: "timestamp", type: "datetime" },
+ //       { key: "tags", type: "keyword" },
+ //       { key: "chunkLevel", type: "integer" },
+ //       { key: "headingPath", type: "keyword" }
+ //     ];
+ 
+ //     for (const field of fieldsToIndex) {
+ //       await client.createPayloadIndex(COLLECTION_NAME, {
+ //         field_name: field.key,
+ //         field_schema: field.type as any
+ //       });
+ //     }
+ 
+ //     console.log(`✅ All payload indexes created for fast filtering.`);
+ //   }
+ // };
+
+ export const initStorage = async (forceRecreate = false) => {
    const collections = await client.getCollections();
    const exists = collections.collections.some((c) => c.name === COLLECTION_NAME);
  
-   if (!exists) {
+   if (exists && forceRecreate) {
+     await client.deleteCollection(COLLECTION_NAME);
+     console.log(`🗑️ Deleted existing collection '${COLLECTION_NAME}'.`);
+   }
+ 
+   if (!exists || forceRecreate) {
      // 1. Create collection with vectors + sparse support
      await client.createCollection(COLLECTION_NAME, {
        vectors: {
@@ -56,46 +103,11 @@ const COLLECTION_NAME = 'aetheros_notes';
      console.log(`✅ All payload indexes created for fast filtering.`);
    }
  };
-
+ 
 /**
  * God Plan Upsert — Dense + Sparse + Full Text
  */
- // export const upsertChunk = async (
- //   id: string,
- //   denseVector: number[],
- //   // sparseVector: Record<string, number>,   // ← NEW: BM25 sparse vector
- //   text: string,
- //   payload: any
- // ) => {
- //   console.log(`   Payload keys: ${Object.keys(payload).join(', ')}`);
- //   console.log(`   parentId in payload: ${payload.parentId}`);
- //   console.log(`📤 Upserting chunk: ${id}`);
- //   console.log(`   Text length: ${text.length} chars`);
- //   console.log(`   Payload keys: ${Object.keys(payload).join(', ')}`);
- //   console.log(`   Heading path: ${payload.headingPath?.join(' → ') || '(none)'}`);
- //   console.log(`   Chunk level: ${payload.chunkLevel}`);
- 
- //   await client.upsert(COLLECTION_NAME, {
- //     wait: true,
- //     points: [
- //       {
- //         id,
- //         vector: {
- //           "text-dense": denseVector,
- //           // 🚀 CRITICAL: Satisfy the schema we created in initStorage.
- //           // This allows you to keep the Watcher simple for now.
- //           "text-sparse": { indices: [], values: [] }
- //         },
- //         payload: {
- //           ...payload,
- //           text,                         // Full text for LLM & citations
- //         },
- //       },
- //     ],
- //   });
- 
- //   console.log(`   ✅ Upserted successfully`);
- // };
+
  // 
  import { computeSparseVector } from './services/sparseVector.js';
  
@@ -106,6 +118,8 @@ const COLLECTION_NAME = 'aetheros_notes';
    text: string,
    payload: any
  ) => {
+   await saveChunkText(id, text);
+   
    const sparseVector = computeSparseVector(text); // synchronous
  
    await client.upsert(COLLECTION_NAME, {
@@ -118,7 +132,7 @@ const COLLECTION_NAME = 'aetheros_notes';
        },
        payload: {
          ...payload,
-         text,
+         // text,
        },
      }],
    });
@@ -127,11 +141,26 @@ const COLLECTION_NAME = 'aetheros_notes';
 /**
  * Delete ALL chunks for a specific file (used on CHANGE & unlink)
  */
+
+//  for text store in another db
+// 
 export const deleteNoteByFilePath = async (filePath: string) => {
+  // 1. Fetch all point IDs for this filePath
+  const scroll = await client.scroll(COLLECTION_NAME, {
+    filter: { must: [{ key: 'filePath', match: { value: filePath } }] },
+    with_payload: false,
+    with_vector: false,
+    limit: 100, // we may need to paginate
+  });
+
+  const ids = scroll.points.map(p => p.id as string);
+  
+  // 2. Delete the text files
+  await deleteChunkTexts(ids);
+  
+  // 3. Delete the points from Qdrant
   await client.delete(COLLECTION_NAME, {
-    filter: {
-      must: [{ key: 'filePath', match: { value: filePath } }],
-    },
+    filter: { must: [{ key: 'filePath', match: { value: filePath } }] },
   });
 };
 
@@ -148,82 +177,8 @@ export const searchNotes = async (queryVector: number[], limit = 8) => {
 };
 
 
-//v1.1
-// 
-/**
- * 🚀 God Plan Hybrid Search (Dense + Sparse + Metadata Filters)
- * This is the real retrieval engine for AetherOS.
- */
-// export const hybridSearch = async (
-//   queryText: string,
-//   limit: number = 8,
-//   filter: any = {}   // e.g. { must: [{ key: "timestamp", range: { gt: "2026-01-01" } }] }
-// ) => {
-//   // 1. Get dense embedding of the user query
-//   const denseVector = await getEmbedding(queryText);   // from your llm.js
-
-//     const results = await client.query(COLLECTION_NAME, {
-//       query: denseVector,   // raw number[] directly
-//       using: "text-dense",
-//       limit,
-//       with_payload: true,
-//       with_vector: false,
-//       score_threshold: 0.65
-//     } as any);  // ← cast to any to bypass the broken TS types
-
-//   return results.points.map((point: any) => ({
-//     id: point.id,
-//     score: point.score,
-//     text: point.payload.text,
-//     headingPath: point.payload.headingPath,
-//     filePath: point.payload.filePath,
-//     tags: point.payload.tags || [],
-//     chunkLevel: point.payload.chunkLevel
-//   }));
-// };
-// 
-// 
-
 import { rerank } from "./services/reranker.js";
-
-
-// 
-
-// export const hybridSearch = async (
-//   queryText: string,
-//   limit: number = 25, 
-//   filter: any = {}
-// ) => {
-//   const denseVector = await getEmbedding(queryText);
-
-//   const results = await client.search(COLLECTION_NAME, {
-//     vector: {
-//       name: "text-dense",
-//       vector: denseVector
-//     },
-//     limit,
-//     with_payload: true,
-//     score_threshold: 0.40, // Let more candidates through for the reranker
-//     ...(Object.keys(filter).length > 0 && { filter })
-//   });
-  
-//   results.forEach((point: any) => {
-//     console.log(`   Retrieved point ${point.id}: parentId = ${point.payload.parentId}`);
-//   });
-
-//   // Return raw chunks without reranking here
-//   return results.map((point: any) => ({
-//     id: point.id,
-//     score: point.score,
-//     text: point.payload.text,
-//     headingPath: point.payload.headingPath || [],
-//     filePath: point.payload.filePath,
-//     parentId: point.payload.parentId || null,
-//     chunkLevel: point.payload.chunkLevel,
-//     tags: point.payload.tags || [],
-//   }));
-// };
-
+import { deleteChunkTexts, getChunkText, saveChunkText } from './services/chunkStorage.js';
 
 
 
@@ -271,29 +226,43 @@ export const hybridSearch = async (
   denseResults.forEach((point: any, idx: number) => addResult(point, idx + 1, 1.0));
   sparseResults.forEach((point: any, idx: number) => addResult(point, idx + 1, 1.0));
 
-  // 4. Sort and return top `limit`
-  const combined = Array.from(scores.values())
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map(({ point }) => ({
+const combined = Array.from(scores.values())
+  .sort((a, b) => b.score - a.score)
+  .slice(0, limit)
+  .map(async ({ point }) => {
+    let text = '';
+    const rawId = point.id;
+    const cleanId = rawId.replace(/-/g, ''); // remove hyphens
+    try {
+      text = await getChunkText(cleanId);
+    } catch (err) {
+      const payloadText = point.payload.text;
+      if (payloadText && typeof payloadText === 'string') {
+        text = payloadText;
+        console.log(`📎 Fallback: using payload text for ${rawId}`);
+        await saveChunkText(cleanId, text);
+      } else {
+        console.warn(`⚠️ No text found for chunk ${rawId} (file missing, payload missing)`);
+      }
+    }
+    return {
       id: point.id,
-      score: point.score,        // original score, not used later
-      text: point.payload.text,
+      score: point.score,
+      text,
       headingPath: point.payload.headingPath || [],
       filePath: point.payload.filePath,
       parentId: point.payload.parentId || null,
       chunkLevel: point.payload.chunkLevel,
       tags: point.payload.tags || [],
-    }));
-
-  return combined;
+    };
+  });
+const resolved = await Promise.all(combined);
+console.log(`🔍 Retrieved ${resolved.length} points with IDs:`, resolved.map(c => c.id).join(', '));
+return resolved;
 };
 
 
-/**
- * 🚀 God Plan: Context Hydrator Helper
- * Fetches a specific chunk (usually a Parent Section) by its ID.
- */
+
 export const getChunkById = async (id: string) => {
   try {
     const result = await client.retrieve(COLLECTION_NAME, {
@@ -301,13 +270,37 @@ export const getChunkById = async (id: string) => {
       with_payload: true,
       with_vector: false
     });
+    if (result.length === 0) return null;
+    const point = result[0];
+    const cleanId = id.replace(/-/g, '');
+    let text = '';
 
-    return result.length > 0 ? result[0] : null;
+    try {
+      text = await getChunkText(cleanId);
+    } catch (fileError) {
+      const payloadText = (point.payload as any)?.text;
+      if (payloadText && typeof payloadText === 'string') {
+        text = payloadText;
+        console.log(`📎 Fallback: using payload text for ${id}`);
+        await saveChunkText(cleanId, text);
+      } else {
+        throw fileError;
+      }
+    }
+
+    return {
+      id: point.id,
+      payload: {
+        ...point.payload,
+        text,
+      },
+    };
   } catch (error) {
     console.error(`❌ Failed to hydrate chunk ${id}:`, error);
     return null;
   }
 };
+export { client, COLLECTION_NAME };
 
 
-export { client };
+

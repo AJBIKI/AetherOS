@@ -18,29 +18,60 @@ const initReranker = async () => {
 /**
  * 🎯 God-Tier Reranker (Metadata Preserving)
  */
+// export const rerank = async <T extends { text: string }>(
+//   query: string,
+//   chunks: T[],
+//   topK: number = 5
+// ): Promise<T[]> => {
+//   const model = await initReranker();
+
+//   const scored = await Promise.all(
+//     chunks.map(async (chunk) => {
+//       const result = await model(query, { text_pair: chunk.text });
+      
+//       const relevanceScore = result[0].label === "LABEL_1" 
+//         ? result[0].score 
+//         : 1 - result[0].score;
+
+//       return { ...chunk, rerankScore: relevanceScore };
+//     })
+//   );
+
+//   return scored
+//     .sort((a, b) => b.rerankScore - a.rerankScore)
+//     .slice(0, topK)
+//     // 🚀 FIXED: The "Double Cast" pattern to satisfy the TS Compiler
+//     // We cast to unknown first, then to T.
+//     .map(({ rerankScore, ...rest }) => rest as unknown as T); 
+// };
+// 
+// batch input
+// 
 export const rerank = async <T extends { text: string }>(
   query: string,
   chunks: T[],
   topK: number = 5
 ): Promise<T[]> => {
+  if (chunks.length === 0) return [];
   const model = await initReranker();
 
-  const scored = await Promise.all(
-    chunks.map(async (chunk) => {
-      const result = await model(query, { text_pair: chunk.text });
-      
-      const relevanceScore = result[0].label === "LABEL_1" 
-        ? result[0].score 
-        : 1 - result[0].score;
+  console.log(`🎯 GPU Batch Reranking: ${chunks.length} candidates...`);
 
-      return { ...chunk, rerankScore: relevanceScore };
-    })
-  );
+  // Prepare two parallel arrays
+  const queries = Array(chunks.length).fill(query);
+  const passages = chunks.map(c => c.text);
+
+  // Execute batch – this is the correct API for cross-encoders
+  const results = await model(queries, { text_pair: passages, batch_size: 16 });
+
+  const scored = chunks.map((chunk, i) => {
+    const result = results[i];
+    const relevanceScore = result.label === "LABEL_1" ? result.score : 1 - result.score;
+    return { ...chunk, rerankScore: relevanceScore };
+  });
 
   return scored
     .sort((a, b) => b.rerankScore - a.rerankScore)
     .slice(0, topK)
-    // 🚀 FIXED: The "Double Cast" pattern to satisfy the TS Compiler
-    // We cast to unknown first, then to T.
-    .map(({ rerankScore, ...rest }) => rest as unknown as T); 
+    .map(({ rerankScore, ...rest }) => rest as unknown as T);
 };

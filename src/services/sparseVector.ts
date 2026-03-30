@@ -1,3 +1,4 @@
+
 import { QdrantClient } from '@qdrant/js-client-rest';
 
 export interface SparseVector {
@@ -23,9 +24,10 @@ function wordToId(word: string): number {
 }
 
 /**
- * Update global IDF map from a list of all chunk texts.
+ * Compute a new IDF map from a list of chunk texts.
+ * Returns a Map<termId, idf> without modifying the global map.
  */
-export async function updateIdf(chunks: string[]) {
+export async function computeIdfMap(chunks: string[]): Promise<Map<number, number>> {
   const docCount = chunks.length;
   const termDocFreq = new Map<number, number>();
 
@@ -37,14 +39,32 @@ export async function updateIdf(chunks: string[]) {
     }
   }
 
+  const idfMap = new Map<number, number>();
   for (const [termId, df] of termDocFreq) {
     const idf = Math.log((docCount - df + 0.5) / (df + 0.5) + 1);
-    globalIdf.set(termId, idf);
+    idfMap.set(termId, idf);
   }
+  return idfMap;
 }
 
 /**
- * Compute BM25 sparse vector for a given text.
+ * Replace the global IDF map with a new one.
+ */
+export function setGlobalIdf(newMap: Map<number, number>) {
+  globalIdf = newMap;
+}
+
+/**
+ * Legacy: Update the global IDF map by computing from all chunks.
+ * (You can keep this for compatibility or remove it later.)
+ */
+export async function updateIdf(chunks: string[]) {
+  const newIdf = await computeIdfMap(chunks);
+  setGlobalIdf(newIdf);
+}
+
+/**
+ * Compute BM25 sparse vector for a given text using the current global IDF.
  */
 export function computeSparseVector(text: string): SparseVector {
   const terms = tokenize(text);
@@ -84,7 +104,10 @@ export async function fetchAllChunkTexts(client: QdrantClient, collectionName: s
       with_vector: false,
     });
     for (const point of response.points) {
-      texts.push(point.payload.text);
+      const text = (point.payload as any)?.text;
+      if (text && typeof text === 'string') {
+        texts.push(text);
+      }
     }
     offset = response.next_page_offset as string | undefined;
     hasMore = !!offset;

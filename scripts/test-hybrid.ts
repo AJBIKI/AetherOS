@@ -77,7 +77,7 @@ Used pipeline() + manual pause/resume.`;
   // 
   // 
   // 
-  const { contextString } =await getHydratedContext(question, 19, 6);
+  const { contextString , sources } =await getHydratedContext(question, 19, 6);
   console.log('🤖 Generating Answer via Ollama...');
   
   const answer = await generateAnswer(question, contextString);
@@ -86,6 +86,9 @@ Used pipeline() + manual pause/resume.`;
   console.log(`🤖 AetherOS ANSWER:`);
   console.log(answer);
   console.log(`========================================\n`);
+  sources.forEach(s => {
+    console.log(s.heading);
+  })
 
 
   console.log('\n🎉 End-to-End test completed!');

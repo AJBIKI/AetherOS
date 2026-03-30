@@ -9,28 +9,6 @@ export const getEmbedding = async (text: string) => {
   return response.embedding; // This is our Vector [cite: 347, 350]
 };
 
-// 2. Ask the LLM a question based on your notes
-// export const generateAnswer = async (prompt: string, context: string) => {
-//   const fullPrompt = `
-//     Context from your notes:
-//     ${context}
-
-//     Question: ${prompt}
-    
-//     Answer the question strictly using the context provided above.
-//   `;
-
-//   const response = await ollama.chat({
-//     model: 'qwen3:8b',
-//     messages: [{ role: 'user', content: fullPrompt }],
-//     stream: false, // We'll learn streaming in Phase 3 [cite: 348]
-//   });
-
-//   return response.message.content;
-// };
-// 
-// 
-// 
 export const generateAnswer = async (
   question: string,
   context: string

@@ -1,0 +1,50 @@
+With the implementation of **BM25 Sparse Vectors** and **RRF Hybrid Search**, you have officially crossed the "Maturity Threshold" for a RAG system. You've moved from basic "keyword matching" to a "Context-Aware Research Engine".
+
+Based on the **AetherOS "God Plan"** and your current trajectory, here are the remaining phases to reach **v2.0 (The Agentic Era)**.
+
+---
+
+### 🏛️ Phase v1.4: Performance & "Cold Storage" Refinement
+*Current Status: 85% Complete*
+
+Now that the logic is elite, we need to ensure it stays fast on your **RTX 2050** as your notes grow.
+
+* [ ] **GPU Batching for Reranker**: Currently, you rerank chunks one by one. Implementing batch processing (sending 10 chunks at once to `transformers.js`) will cut retrieval latency by ~40%.
+* [ ] **IDF Maintenance Worker**: Instead of calculating IDF on every startup, we should move it to a background worker that triggers only when `(newChunks > 100)`.
+* [ ] **Qdrant Payload Optimization**: Remove the full `text` from the dense vector payload and only store it in the sparse vector to reduce VRAM usage during the initial prefetch.
+
+---
+
+### 🤖 Phase v1.5: The "Self-Correction" Layer
+*Target: "Near Zero" Hallucination*
+
+This phase moves AetherOS from a search engine to a **Reasoning Engine**.
+
+* [ ] **Chain-of-Verification (CoVe)**: Before the LLM answers, it should "Fact-Check" its own context. If it claims something not found in the "Zoomed" section, it must flag it.
+* [ ] **Query Decomposition**: If a user asks a multi-part question (e.g., "Compare Antigravity to Cursor"), the system should split this into *two* separate hybrid searches and merge the results.
+* [ ] **Citation Linking**: Make the citations clickable in your UI so they open the exact line in your markdown file.
+
+---
+
+### 🚀 Phase v2.0: Agentic Missions (The Antigravity Leap)
+*Target: Task-Level Delegation*
+
+This is where you implement the "Agent-First" philosophy seen in the **Antigravity IDE**.
+
+* [ ] **Tool Use (MCP Integration)**: Allow AetherOS to not just *read* your notes, but *execute* tasks based on them (e.g., "Create a new note summarizing my last 3 meetings").
+* [ ] **Autonomous Testing (Browser Subagent)**: Integration with a managed browser to verify code or links mentioned in your notes.
+* [ ] **Generative Media (Nano Banana)**: Allow the engine to generate UI mockups or diagrams directly from your technical specs.
+
+
+
+---
+
+### 📊 Summary of Technical Debt
+
+| Task | Priority | ROI (Return on Investment) |
+| :--- | :--- | :--- |
+| **Reranker Batching** | **High** | Massive speed boost for your GPU. |
+| **Query Expansion** | **Medium** | Better results for "vague" questions. |
+| **Automatic Tags** | **Low** | Better organization for the "Browse" view. |
+
+**Would you like to tackle the "Reranker Batching" next to optimize your RTX 2050, or should we build the "Query Decomposition" logic for more complex questions?**
