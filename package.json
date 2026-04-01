@@ -21,6 +21,7 @@
     "dotenv": "^17.3.1",
     "fastify": "^5.8.2",
     "gray-matter": "^4.0.3",
+    "ml-distance": "^4.0.1",
     "ollama": "^0.6.3",
     "pino": "^10.3.1",
     "remark-gfm": "^4.0.1",

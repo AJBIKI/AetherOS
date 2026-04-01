@@ -4,6 +4,7 @@ import { generateAnswer } from '../src/llm.js';
 import { getHydratedContext } from '../src/services/retrieval.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { verifyAnswer } from '../src/services/cove.ts';
 
 const TEST_FOLDER = path.resolve('./test-notes');
 
@@ -62,17 +63,23 @@ Used pipeline() + manual pause/resume.`;
   const { contextString, sources } = await getHydratedContext(question, 19, 6);
 
   console.log('🤖 Generating Answer via Ollama...');
-  const answer = await generateAnswer(question, contextString);
+  // const answer = await generateAnswer(question, contextString);
 
-  console.log(`\n========================================`);
-  console.log(`🤖 AetherOS ANSWER:`);
-  console.log(answer);
-  console.log(`========================================\n`);
+  // console.log(`\n========================================`);
+  // console.log(`🤖 AetherOS ANSWER:`);
+  // console.log(answer);
+  // console.log(`========================================\n`);
 
-  console.log('📚 Sources:');
-  sources.forEach(s => console.log(`- ${s.heading}`));
+  // console.log('📚 Sources:');
+  // sources.forEach(s => console.log(`- ${s.heading}`));
 
-  console.log('\n🎉 End-to-End test completed!');
+  // console.log('\n🎉 End-to-End test completed!');
+  // 
+  // 
+  // // ... after getting contextString
+  const rawAnswer = await generateAnswer(question, contextString);
+  const verifiedAnswer = await verifyAnswer(question, rawAnswer, contextString);
+  console.log(`\n🤖 AetherOS VERIFIED ANSWER:\n${verifiedAnswer}`);
 }
 
 main().catch(console.error);
