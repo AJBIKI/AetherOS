@@ -68,7 +68,9 @@ const handleFile = async (filePath: string, type: 'ADD' | 'CHANGE') => {
         level: chunk.level,           // ← Add the numeric level
         parentId: chunk.parentId,
         timestamp: chunk.timestamp,
-        tags: chunk.tags
+        tags: chunk.tags,
+        sectionId: chunk.sectionId,   // ← add
+        isSection: chunk.isSection,   // ← add (for section chunks)
       });
       console.log(`      ✅ Upserted`);
     }

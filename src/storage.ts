@@ -226,41 +226,47 @@ export const hybridSearch = async (
   denseResults.forEach((point: any, idx: number) => addResult(point, idx + 1, 1.0));
   sparseResults.forEach((point: any, idx: number) => addResult(point, idx + 1, 1.0));
 
-const combined = Array.from(scores.values())
-  .sort((a, b) => b.score - a.score)
-  .slice(0, limit)
-  .map(async ({ point }) => {
-    let text = '';
-    const rawId = point.id;
-    const cleanId = rawId.replace(/-/g, ''); // remove hyphens
-    try {
-      text = await getChunkText(cleanId);
-    } catch (err) {
-      const payloadText = point.payload.text;
-      if (payloadText && typeof payloadText === 'string') {
-        text = payloadText;
-        console.log(`📎 Fallback: using payload text for ${rawId}`);
-        await saveChunkText(cleanId, text);
-      } else {
-        console.warn(`⚠️ No text found for chunk ${rawId} (file missing, payload missing)`);
+  const combined = Array.from(scores.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(async ({ point }) => {
+      let text = '';
+      const rawId = point.id;
+      const cleanId = rawId.replace(/-/g, ''); // remove hyphens
+      try {
+        text = await getChunkText(cleanId);
+      } catch (err) {
+        const payloadText = point.payload.text;
+        if (payloadText && typeof payloadText === 'string') {
+          text = payloadText;
+          console.log(`📎 Fallback: using payload text for ${rawId}`);
+          await saveChunkText(cleanId, text);
+        } else {
+          console.warn(`⚠️ No text found for chunk ${rawId} (file missing, payload missing)`);
+        }
       }
-    }
-    return {
-      id: point.id,
-      score: point.score,
-      text,
-      headingPath: point.payload.headingPath || [],
-      filePath: point.payload.filePath,
-      parentId: point.payload.parentId || null,
-      chunkLevel: point.payload.chunkLevel,
-      tags: point.payload.tags || [],
-    };
-  });
-const resolved = await Promise.all(combined);
-console.log(`🔍 Retrieved ${resolved.length} points with IDs:`, resolved.map(c => c.id).join(', '));
-return resolved;
-};
+      return {
+        id: point.id,
+        score: point.score,
+        text,
+        headingPath: point.payload.headingPath || [],
+        filePath: point.payload.filePath,
+        parentId: point.payload.parentId || null,
+        chunkLevel: point.payload.chunkLevel,
+        tags: point.payload.tags || [],
+        sectionId: point.payload.sectionId,
+        isSection: point.payload.isSection,     // ← add
+      };
+    });
+  const resolved = await Promise.all(combined);
+  console.log(`🔍 Retrieved ${resolved.length} points with IDs:`, resolved.map(c => c.id).join(', '));
+  return resolved.map(r => ({
+    ...r,
+    sectionId: r.sectionId, // ensure it's passed through
+    isSection: r.isSection,
+  }));
 
+}
 
 
 export const getChunkById = async (id: string) => {

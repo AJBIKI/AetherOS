@@ -47,7 +47,7 @@ const initReranker = async () => {
 // 
 // batch input
 // 
-export const rerank = async <T extends { text: string }>(
+export const rerank = async <T extends { text: string; headingPath?: string[] }>(
   query: string,
   chunks: T[],
   topK: number = 5
@@ -59,15 +59,45 @@ export const rerank = async <T extends { text: string }>(
 
   // Prepare two parallel arrays
   const queries = Array(chunks.length).fill(query);
-  const passages = chunks.map(c => c.text);
+  // const passages = chunks.map(c => c.text);
+  // 
+  const passages = chunks.map(c => {
+    const heading = c.headingPath?.join(' > ') ?? '';
+    const passage = heading ? `${heading}\n\n${c.text}` : c.text;
+    console.log(`[DEBUG] Heading: ${heading.substring(0, 80)}...`);
+    return passage;
+  });
 
   // Execute batch – this is the correct API for cross-encoders
+  // const results = await model(queries, { text_pair: passages, batch_size: 16 });
   const results = await model(queries, { text_pair: passages, batch_size: 16 });
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    if (chunk.headingPath?.join(' ').includes('Kiro')) {
+      console.log(`🔍 Kiro section passage:`, passages[i]);
+      console.log(`   Result:`, results[i]);
+    }
+  }
 
   const scored = chunks.map((chunk, i) => {
     const result = results[i];
-    const relevanceScore = result.label === "LABEL_1" ? result.score : 1 - result.score;
+    
+    // Detect overconfident irrelevance — model abstaining on unknown terms
+    const isModelAbstaining = result.label === 'LABEL_0' && result.score > 0.95;
+    
+    const relevanceScore = isModelAbstaining
+      ? (chunk as any).score * 0.9        // fall back to hybrid search score
+      : result.label === 'LABEL_1' 
+        ? result.score 
+        : 1 - result.score;
+  
     return { ...chunk, rerankScore: relevanceScore };
+  });
+  
+  scored.forEach((item, idx) => {
+    if (item.headingPath?.join(' ').includes('Antigravity vs. Kiro')) {
+      console.log(`🔍 Raw reranker score for Kiro section: ${item.rerankScore}`);
+    }
   });
 
   return scored

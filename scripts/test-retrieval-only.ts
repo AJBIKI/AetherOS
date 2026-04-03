@@ -2,7 +2,8 @@ import { getHydratedContext } from '../src/services/retrieval.js';
 import { generateAnswer } from '../src/llm.js';
 import { verifyAnswer } from '../src/services/cove.js';
 
-const QUESTION = "How to integrate Gemini & Google AI into modern web-apps?";
+// const QUESTION = "How to integrate Gemini & Google AI into modern web-apps?";
+const QUESTION = "Antigravity vs. Kiro?";
 
 async function main() {
   console.log('\n🧪 AetherOS – Retrieval‑Only Test\n');

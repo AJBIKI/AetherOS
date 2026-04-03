@@ -21,6 +21,8 @@ export interface HierarchicalChunk {
   timestamp: string;
   tags: string[];
   chunkLevel: 'section' | 'paragraph';
+  sectionId: string;        // ← stable identifier for the section
+  isSection?: boolean;      // true if this is a section chunk
 }
 
 // ── AST collection types ──────────────────────────────────────────────────────
@@ -259,9 +261,11 @@ async function generateChunks(
       sectionChunkCount = sectionSplits.length;
       for (let i = 0; i < sectionSplits.length; i++) {
         const content = sectionSplits[i];
+        // Unique ID for this split
+        const uniqueId = makeId(`${filePath}|${headingPath.join('>')}|section|${i}`);
         all.push({
           // id: makeId(`${filePath}|${headingPath.join('>')}|section|${content.substring(0, 120)}|${i}`),
-          id:sectionId,
+          id:uniqueId,
           content,
           headingPath,
           level,
@@ -270,6 +274,8 @@ async function generateChunks(
           timestamp,
           tags: [],
           chunkLevel: 'section',
+          sectionId: sectionId,                 // ← stable section ID
+          isSection: true,
         });
       }
     }
@@ -290,6 +296,7 @@ async function generateChunks(
           timestamp,
           tags: [],
           chunkLevel: 'paragraph',
+          sectionId: sectionId,   // ← stable section ID
         });
       }
     }
